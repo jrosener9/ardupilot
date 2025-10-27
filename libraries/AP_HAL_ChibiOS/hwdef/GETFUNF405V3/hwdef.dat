@@ -1,0 +1,187 @@
+
+# hw definition file for GETFUNF405V3 (SpeedyBee F405 v3 clone)
+
+# MCU class and specific type
+MCU STM32F4xx STM32F405xx
+
+# Give this clone its own board ID to avoid confusion with official SB v3
+# Pick any unused value for local builds
+APJ_BOARD_ID 21082
+
+# crystal frequency
+OSCILLATOR_HZ 8000000
+
+define STM32_ST_USE_TIMER 5
+
+FLASH_SIZE_KB 1024
+
+# ---- I2C ----
+# Clone uses PB8/PB9 (I2C1) per BF resource
+I2C_ORDER I2C1
+
+# ---- Serial order (USB first) ----
+SERIAL_ORDER OTG1 USART1 USART2 USART3 UART4 UART5 USART6
+
+# ---- LEDs ----
+# Your BF resources show LED pins on PC14 and PC15
+PC15 LED_BLUE  OUTPUT LOW GPIO(0)
+PC14 LED_GREEN OUTPUT LOW GPIO(1)
+define HAL_GPIO_A_LED_PIN 0
+
+# ---- Buzzer ----
+# resource BEEPER 1 B00
+PB0 BUZZER OUTPUT GPIO(80) LOW
+define HAL_BUZZER_PIN 80
+
+# ---- SPI ----
+# SPI1 for IMU (from BF: SPI1 SCK A05, SDI A06, SDO A07, CS A04)
+PA5 SPI1_SCK  SPI1
+PA6 SPI1_MISO SPI1
+PA7 SPI1_MOSI SPI1
+PA4 ICM42688_CS CS
+
+# SPI2 for OSD (from BF: SPI2 SCK B13, SDI B14, SDO B15, CS B12)
+PB13 SPI2_SCK  SPI2
+PB14 SPI2_MISO SPI2
+PB15 SPI2_MOSI SPI2
+PB12 MAX7456_CS CS
+
+# --- SPI3: onboard DataFlash (Winbond W25Q128 16MB) ---
+# Betaflight shows SPI3 on B03/B04/B05; your note says FLASH_CS is PC13.
+PB3  SPI3_SCK   SPI3
+PB4  SPI3_MISO  SPI3
+PB5  SPI3_MOSI  SPI3
+PC13 FLASH_CS CS
+
+# Bind the DataFlash device to SPI3
+# MODE3 is typical for W25Qxx; init at 1 MHz then raise to 24 MHz
+SPIDEV dataflash SPI3 DEVID1 FLASH_CS MODE3 1*MHZ 24*MHZ
+
+# Enable DataFlash logging backend in this build
+define HAL_LOGGING_DATAFLASH_ENABLED 1
+
+
+# ---- I2C actual pins ----
+# resource I2C_SCL 1 B08, I2C_SDA 1 B09
+PB8  I2C1_SCL I2C1
+PB9  I2C1_SDA I2C1
+
+# ---- Analog pins ----
+# matches your BF ADC mapping
+PC0 BATT_VOLTAGE_SENS ADC1 SCALE(1)
+PC1 BATT_CURRENT_SENS ADC1 SCALE(1)
+PC2 RSSI_ADC_PIN      ADC1 SCALE(1)
+
+# default battery setup (same as SB v3 – tweak later if needed)
+define HAL_BATT_MONITOR_DEFAULT 4
+define HAL_BATT_VOLT_PIN 10
+define HAL_BATT_CURR_PIN 11
+define HAL_BATT_VOLT_SCALE 11.2
+define HAL_BATT_CURR_SCALE 52.7
+define BOARD_RSSI_ANA_PIN 12
+
+# ---- UARTs (per BF SERIAL_TX/RX mapping) ----
+# USART1 on PB6/PB7 (clone) – good general-purpose port (VTX/DJI if desired)
+PB6  USART1_TX USART1
+PB7  USART1_RX USART1
+define DEFAULT_SERIAL1_PROTOCOL SerialProtocol_DJI_FPV
+
+# USART2 on PA2/PA3 – use for RC (CRSF/SBUS/ELRS in via RX2 usually)
+PA2  USART2_TX USART2
+PA3  USART2_RX USART2
+define DEFAULT_SERIAL2_PROTOCOL SerialProtocol_RCIN
+
+# USART3 on PC10/PC11
+PC10 USART3_TX USART3 NODMA
+PC11 USART3_RX USART3 NODMA
+define DEFAULT_SERIAL3_PROTOCOL SerialProtocol_None
+
+# UART4 on PA0/PA1
+PA0  UART4_TX UART4 NODMA
+PA1  UART4_RX UART4 NODMA
+define DEFAULT_SERIAL4_PROTOCOL SerialProtocol_None
+
+# UART5 on PC12/PD2 (ESC telemetry by default)
+PC12 UART5_TX UART5 NODMA
+PD2  UART5_RX UART5 NODMA
+define DEFAULT_SERIAL5_PROTOCOL SerialProtocol_ESCTelemetry
+define DEFAULT_SERIAL5_BAUD 19200
+
+# USART6 on PC6/PC7 (GPS by default)
+PC6  USART6_TX USART6
+PC7  USART6_RX USART6
+define DEFAULT_SERIAL6_PROTOCOL SerialProtocol_GPS
+define DEFAULT_SERIAL6_BAUD AP_SERIALMANAGER_GPS_BAUD
+
+# ---- USB ----
+PA11 OTG_FS_DM OTG1
+PA12 OTG_FS_DP OTG1
+
+# ---- USB detect (from BF) ----
+PC3  USB_DETECT INPUT PULLUP
+
+# ---- PWM outputs (motors/servo)
+# Map to timers per STM32F405 AF:
+#  PA8  TIM1_CH1
+#  PA9  TIM1_CH2
+#  PA10 TIM1_CH3
+#  PA15 TIM2_CH1
+#  PB10 TIM2_CH3
+#  PB11 TIM2_CH4
+#  PC8  TIM3_CH3 or TIM8_CH3   (we choose TIM3 here; swap to TIM8_CH3 if needed)
+#  PC9  TIM3_CH4 or TIM8_CH4   (we choose TIM8_CH4 for better DMA options)
+
+# ArduPilot MAIN outputs order (PWM(1..8)) follows AP motor ordering convention,
+# not Betaflight's resource numbering. Wire ESCs accordingly.
+
+PA15 TIM2_CH1 TIM2 PWM(1) GPIO(50)   # BF MOTOR1
+PA10 TIM1_CH3 TIM1 PWM(2) GPIO(51)   # BF MOTOR2
+PA9  TIM1_CH2 TIM1 PWM(3) GPIO(52)   # BF MOTOR3
+PA8  TIM1_CH1 TIM1 PWM(4) GPIO(53)   # BF MOTOR4
+PC8  TIM3_CH3 TIM3 PWM(6) GPIO(55)   # BF MOTOR6  (grouped with PC9 on TIM3 if swapped)
+PB11 TIM2_CH4 TIM2 PWM(7) GPIO(56)   # BF MOTOR7
+PB10 TIM2_CH3 TIM2 PWM(8) GPIO(57)   # BF MOTOR8
+PC9  TIM8_CH4 TIM8 PWM(9) GPIO(58)   # BF SERVO1 (we expose as SERVO9 by default)
+
+# If DShot doesn’t work on PC8 as TIM3_CH3 in your build, change that line to:
+# PC8  TIM8_CH3 TIM8 PWM(6) GPIO(55)
+
+# ---- Storage & flash layout ----
+define HAL_STORAGE_SIZE 15360
+STORAGE_FLASH_PAGE 1
+# reserve 16k for bootloader and 32k for flash storage
+FLASH_RESERVE_START_KB 48
+
+# ---- Sensors ----
+# IMU
+IMU Invensensev3 SPI:icm42688 ROTATION_ROLL_180_YAW_90
+
+# Baro
+BARO DPS310 I2C:0:0x76
+
+# No internal compass – probe external I2C
+define ALLOW_ARM_NO_COMPASS
+define HAL_PROBE_EXTERNAL_I2C_COMPASSES
+define HAL_I2C_INTERNAL_MASK 0
+
+# Default frame (Betaflight/X equivalent)
+define HAL_FRAME_TYPE_DEFAULT 12
+
+# ---- SPI device definitions ----
+SPIDEV icm42688 SPI1 DEVID1 ICM42688_CS MODE3 1*MHZ 8*MHZ
+SPIDEV osd   SPI2 DEVID1 MAX7456_CS MODE0 10*MHZ 10*MHZ
+# Optional FLASH spi3 left undefined for AP usage
+
+# ---- Filesystem / OSD ----
+define OSD_ENABLED 1
+define HAL_OSD_TYPE_DEFAULT 1
+ROMFS_WILDCARD libraries/AP_OSD/fonts/font*.bin
+
+# ---- Build trimming (same as SB v3) ----
+include ../include/minimize_fpv_osd.inc
+include ../include/no_bootloader_DFU.inc
+undef AP_BATTERY_SYNTHETIC_CURRENT_ENABLED
+define AP_BATTERY_SYNTHETIC_CURRENT_ENABLED 0
+
+# Use LED types like SB v3 (PC15/PC14)
+define DEFAULT_NTF_LED_TYPES 257
